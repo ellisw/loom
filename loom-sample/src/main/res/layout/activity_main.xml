@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <fragment android:name="com.nbarraille.loom.sample.NoCallbackFragment"
+            android:id="@+id/no_callback_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/fragment_height"/>
+
+        <fragment android:name="com.nbarraille.loom.sample.NoProgressFragment"
+            android:id="@+id/no_progress_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/fragment_height"/>
+
+        <fragment android:name="com.nbarraille.loom.sample.ProgressFragment"
+            android:id="@+id/progress_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/fragment_height"/>
+
+        <fragment android:name="com.nbarraille.loom.sample.CancellableFragment"
+            android:id="@+id/cancellable_fragment"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/fragment_height"/>
+
+    </LinearLayout>
+
+</ScrollView>
