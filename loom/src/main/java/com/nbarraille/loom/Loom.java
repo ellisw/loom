@@ -1,11 +1,13 @@
 package com.nbarraille.loom;
 
+import com.nbarraille.loom.listeners.LoomListener;
+
 /**
  * Loom let's you run background tasks and manage them in a very simple way.
  */
 public abstract class Loom {
-    private static LoomConfig<EventBusTaskManager.EventBusWrapper> sConfig;
-    private static EventBusTaskManager sDefaultInstance;
+    private static LoomConfig sConfig;
+    private static TaskManager sDefaultInstance;
 
     /**
      * Configures the default Loom instance. This won't have any effect if called after it's already
@@ -13,13 +15,13 @@ public abstract class Loom {
      * @param config the config
      */
     @SuppressWarnings("unused")
-    public static void configureDefault(LoomConfig<EventBusTaskManager.EventBusWrapper> config) {
+    public static void configureDefault(LoomConfig config) {
         sConfig = config;
     }
 
-    private static synchronized EventBusTaskManager getDefaultTaskManager() {
+    private static synchronized TaskManager getDefaultTaskManager() {
         if (sDefaultInstance == null) {
-            EventBusTaskManager.Builder builder = new EventBusTaskManager.Builder();
+            TaskManager.Builder builder = new TaskManager.Builder();
             if (sConfig != null) {
                 builder.setConfig(sConfig);
             }

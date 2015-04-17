@@ -19,5 +19,6 @@ android {
 }
 
 dependencies {
+    compile 'de.greenrobot:eventbus:2.4.0'
     compile 'com.android.support:support-annotations:22.0.0'
 }

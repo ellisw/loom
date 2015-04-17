@@ -1,1 +1,1 @@
-include ':loom', ':loom-eventbus', ':loom-sample'
+include ':loom', ':loom-sample'

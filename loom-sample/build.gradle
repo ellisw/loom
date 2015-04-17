@@ -20,6 +20,6 @@ android {
 }
 
 dependencies {
-    compile project(':loom-eventbus')
+    compile project(':loom')
     compile 'com.android.support:appcompat-v7:22.0.0'
 }

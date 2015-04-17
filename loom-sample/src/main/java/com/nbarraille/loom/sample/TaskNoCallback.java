@@ -10,7 +10,7 @@ import com.nbarraille.loom.events.SuccessEvent;
 /**
  * The simple task possible, this doesn't send any callback to any listeners and is not cancellable
  */
-public class TaskNoCallback extends Task<SuccessEvent, FailureEvent, ProgressEvent> {
+public class TaskNoCallback extends Task {
     @Override
     protected void runTask() throws Exception {
         for (int i = 0; i < 100; i++) {

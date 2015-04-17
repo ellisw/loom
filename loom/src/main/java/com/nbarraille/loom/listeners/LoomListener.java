@@ -1,4 +1,4 @@
-package com.nbarraille.loom;
+package com.nbarraille.loom.listeners;
 
 /**
  * A LoomListener that contains a set of callbacks being called at various points during the task

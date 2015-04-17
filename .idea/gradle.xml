@@ -10,7 +10,6 @@
           <set>
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/loom" />
-            <option value="$PROJECT_DIR$/loom-eventbus" />
             <option value="$PROJECT_DIR$/loom-sample" />
           </set>
         </option>

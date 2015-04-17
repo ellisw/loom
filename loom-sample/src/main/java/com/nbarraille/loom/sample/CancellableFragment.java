@@ -10,6 +10,7 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.nbarraille.loom.Loom;
+import com.nbarraille.loom.listeners.LoomListener;
 import com.nbarraille.loom.listeners.SimpleUiThreadListener;
 
 /**
@@ -24,8 +25,7 @@ public class CancellableFragment extends Fragment {
     private ProgressBar mProgressBar;
     private int mTaskId;
 
-    private SimpleUiThreadListener<TaskCancellable.Success, TaskCancellable.Failure, TaskCancellable.Progress> mListener =
-            new SimpleUiThreadListener<TaskCancellable.Success, TaskCancellable.Failure, TaskCancellable.Progress>() {
+    private LoomListener mListener = new SimpleUiThreadListener<TaskCancellable.Success, TaskCancellable.Failure, TaskCancellable.Progress>() {
                 @Override
                 public void onSuccess(TaskCancellable.Success event) {
                     Log.i("FlySample", "Success Received for task Cancellable");

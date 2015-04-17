@@ -4,7 +4,6 @@
     <modules>
       <module fileurl="file://$PROJECT_DIR$/loom.iml" filepath="$PROJECT_DIR$/loom.iml" />
       <module fileurl="file://$PROJECT_DIR$/loom/loom.iml" filepath="$PROJECT_DIR$/loom/loom.iml" />
-      <module fileurl="file://$PROJECT_DIR$/loom-eventbus/loom-eventbus.iml" filepath="$PROJECT_DIR$/loom-eventbus/loom-eventbus.iml" />
       <module fileurl="file://$PROJECT_DIR$/loom/loom-loom.iml" filepath="$PROJECT_DIR$/loom/loom-loom.iml" />
       <module fileurl="file://$PROJECT_DIR$/loom-sample/loom-sample.iml" filepath="$PROJECT_DIR$/loom-sample/loom-sample.iml" />
     </modules>

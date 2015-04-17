@@ -4,33 +4,38 @@ import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.nbarraille.loom.listeners.LoomListener;
+
 import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 
+import de.greenrobot.event.EventBus;
+
 /**
  * TaskManager manages the tasks and takes care of executing them on the appropriate Executor
  */
-abstract class TaskManager<Bus extends LoomBus> {
+public class TaskManager {
     // By default Loom will execute tasks in the default AsyncTask thread pool
-    protected static final Executor DEFAULT_EXECUTOR = AsyncTask.THREAD_POOL_EXECUTOR;
+    private static final Executor DEFAULT_EXECUTOR = AsyncTask.THREAD_POOL_EXECUTOR;
+    private static final EventBus DEFAULT_BUS = EventBus.builder().logNoSubscriberMessages(true).sendNoSubscriberEvent(true).build();
 
     private final Executor mExecutor; // The executor on which the tasks will be executed
-    private final Bus mBus;
+    private final EventBus mEventBus; // The EventBus used to notify the listeners
     private final Map<Integer, WeakReference<Task>> mCurrentTasks;
 
     /**
      * Builder with fluent API to build TaskManager objects
      */
-    public abstract static class Builder<Bus> {
-        protected LoomConfig<Bus> mConfig;
+    public static class Builder {
+        protected LoomConfig mConfig;
 
         public Builder() {
-            mConfig = new LoomConfig<>();
+            mConfig = new LoomConfig();
         }
 
-        public Builder setConfig(@NonNull LoomConfig<Bus> config) {
+        public Builder setConfig(@NonNull LoomConfig config) {
             mConfig = config;
             return this;
         }
@@ -40,18 +45,22 @@ abstract class TaskManager<Bus extends LoomBus> {
             return this;
         }
 
-        public Builder setBus(Bus bus) {
-            mConfig.setBus(bus);
+        public Builder setBus(EventBus eventbus) {
+            mConfig.setBus(eventbus);
             return this;
         }
 
-        public abstract TaskManager build();
+        public TaskManager build() {
+            EventBus eventBus = mConfig.mEventBus == null ? DEFAULT_BUS : mConfig.mEventBus;
+            Executor executor = mConfig.mExecutor == null ? DEFAULT_EXECUTOR :mConfig.mExecutor;
+            return new TaskManager(executor, eventBus);
+        }
     }
 
-    protected TaskManager(Executor executor, Bus bus) {
+    protected TaskManager(Executor executor, EventBus eventBus) {
         mCurrentTasks = new ConcurrentHashMap<>();
         mExecutor = executor;
-        mBus = bus;
+        mEventBus = eventBus;
     }
     /**
      * Cancels the task with the given ID. If no task with the given ID exists, this will have no
@@ -86,16 +95,16 @@ abstract class TaskManager<Bus extends LoomBus> {
     }
 
     public void registerListener(LoomListener listener) {
-        mBus.register(listener);
+        mEventBus.register(listener);
     }
 
     public void unregisterListener(LoomListener listener) {
-        mBus.unregister(listener);
+        mEventBus.unregister(listener);
     }
 
     final void postEvent(@Nullable Object event) {
         if (event != null) {
-            mBus.postEvent(event);
+            mEventBus.post(event);
         }
     }
 
