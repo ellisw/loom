@@ -2,10 +2,14 @@ package com.nbarraille.loom;
 
 import android.support.annotation.Nullable;
 
+import com.nbarraille.loom.events.FailureEvent;
+import com.nbarraille.loom.events.ProgressEvent;
+import com.nbarraille.loom.events.SuccessEvent;
+
 /**
  * A task to be executed in the background
  */
-public abstract class Task<Success, Failure, Progress> {
+public abstract class Task {
     private TaskManager mManager;
     @Nullable
     private volatile Thread mThread; // The thread on which that task is running. Will be null until it starts executing
@@ -17,6 +21,12 @@ public abstract class Task<Success, Failure, Progress> {
     public int getId() {
         return hashCode();
     }
+
+    /**
+     * The name of the task, used to match the task's progress events with the right listeners
+     * @return the name of the task
+     */
+    protected abstract String name();
 
     /**
      * The task to be executed.
@@ -31,8 +41,8 @@ public abstract class Task<Success, Failure, Progress> {
      * @return the event to be sent
      */
     @Nullable
-    protected Success buildSuccessEvent() {
-        return null;
+    protected SuccessEvent buildSuccessEvent() {
+        return new SuccessEvent();
     }
 
     /**
@@ -41,8 +51,8 @@ public abstract class Task<Success, Failure, Progress> {
      * @return the event to be sent
      */
     @Nullable
-    protected Failure buildFailureEvent() {
-        return null;
+    protected FailureEvent buildFailureEvent() {
+        return new FailureEvent();
     }
 
     /**
@@ -52,8 +62,8 @@ public abstract class Task<Success, Failure, Progress> {
      * @return the event to be sent
      */
     @Nullable
-    protected Progress buildProgressEvent(@SuppressWarnings("UnusedParameters") int progress) {
-        return null;
+    protected ProgressEvent buildProgressEvent(int progress) {
+        return new ProgressEvent(progress);
     }
 
     /**
@@ -100,9 +110,9 @@ public abstract class Task<Success, Failure, Progress> {
         if (progress < 0 || progress > 100) {
             throw new IllegalArgumentException("Invalid progress: " + progress);
         }
-        Progress event = buildProgressEvent(progress);
+        ProgressEvent event = buildProgressEvent(progress);
         if (event != null) {
-            mManager.postEvent(event);
+            mManager.postEvent(this, event);
         }
     }
 

@@ -1,5 +1,11 @@
 package com.nbarraille.loom.listeners;
 
+import android.support.annotation.NonNull;
+
+import com.nbarraille.loom.events.FailureEvent;
+import com.nbarraille.loom.events.ProgressEvent;
+import com.nbarraille.loom.events.SuccessEvent;
+
 /**
  * A LoomListener that contains a set of callbacks being called at various points during the task
  * execution.
@@ -25,4 +31,10 @@ public interface LoomListener<Success, Failure, Progress> {
      * @param event the progress event
      */
     void onProgress(Progress event);
+
+    /**
+     * The name of the task we're monitoring
+     * @return the name of the task
+     */
+    @NonNull String taskName();
 }

@@ -11,28 +11,43 @@ public abstract class UiThreadListener<Success extends SuccessEvent, Failure ext
         implements LoomListener<Success, Failure, Progress> {
     @SuppressWarnings("unused")
     public final void onEventMainThread(SuccessEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onSuccess((Success) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onSuccess((Success) event);
+            } catch (ClassCastException e) {}
+        }
     }
 
     @SuppressWarnings("unused")
     public final void onEventMainThread(FailureEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onFailure((Failure) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onFailure((Failure) event);
+            } catch (ClassCastException e) {}
+        }
     }
 
     @SuppressWarnings("unused")
     public final void onEventMainThread(ProgressEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onProgress((Progress) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onProgress((Progress) event);
+            } catch (ClassCastException e) {}
+        }
     }
+
+    @Override
+    public void onSuccess(Success event) {}
+
+    @Override
+    public void onFailure(Failure event) {}
+
+    @Override
+    public void onProgress(Progress event) {}
 }

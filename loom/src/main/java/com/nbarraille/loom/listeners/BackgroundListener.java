@@ -12,28 +12,43 @@ public abstract class BackgroundListener<Success extends SuccessEvent, Failure e
         implements LoomListener<Success, Failure, Progress> {
     @SuppressWarnings("unused")
     public final void onEvent(SuccessEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onSuccess((Success) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onSuccess((Success) event);
+            } catch (ClassCastException e) {}
+        }
     }
 
     @SuppressWarnings("unused")
     public final void onEvent(FailureEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onFailure((Failure) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onFailure((Failure) event);
+            } catch (ClassCastException e) {}
+        }
     }
 
     @SuppressWarnings("unused")
     public final void onEvent(ProgressEvent event) {
-        //noinspection EmptyCatchBlock
-        try {
-            //noinspection unchecked
-            onProgress((Progress) event);
-        } catch(ClassCastException e) {}
+        if (taskName().equals(event.getTaskName())) {
+            //noinspection EmptyCatchBlock
+            try {
+                //noinspection unchecked
+                onProgress((Progress) event);
+            } catch (ClassCastException e) {}
+        }
     }
+
+    @Override
+    public void onSuccess(Success event) {}
+
+    @Override
+    public void onFailure(Failure event) {}
+
+    @Override
+    public void onProgress(Progress event) {}
 }

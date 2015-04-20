@@ -24,7 +24,7 @@ Usage
 
 Execute a task in the background
 --------------------------------
-First, we need to create a `Task` to execute in the Background. It is recommended to put your tasks classes in new file or static inner classes. You should avoid non-static inner classes, as this will leak the outer class (often a `Fragment` or `Activity`) the same way it happens with `AsyncTask`
+First, we need to create a `Task` to execute in the Background. It is recommended to put your tasks classes in a new file or static inner classes. You should avoid non-static inner classes, as this will leak the outer class (often a `Fragment` or `Activity`) the same way it happens with `AsyncTask`
 ```
 public MyTask extends Task {
     @Override
@@ -32,6 +32,11 @@ public MyTask extends Task {
         for (int i = 0; i < 100; i++) {
             Thread.sleep(100);
         }
+    }
+
+    @Override
+    protected String name() {
+        return "MyTask";
     }
 }
 ```
@@ -43,91 +48,115 @@ Loom.execute(new MyTask());
 Listen for task progress
 ------------------------
 Loom provides `LoomListener` objects that can be registered to get notified about 3 types of status change: Success, Failure and Progress change.
-To create a Listener, you need to create subclasses of `SuccessEvent`, `FailureEvent`, and `ProgressEvent` for each event you're interested in receiving.
+By default, the task will send a `SuccessEvent` and `FailureEvent` on the bus to notify for success and failure. It is up to the task itself to call `postProgress()` to notify of its progress.
 
-Modify your `Task` to send events we're interested in:
- - Create subclasses of `SuccessEvent`, `FailureEvent`, and `ProgressEvent` for each event you're interested in receiving
- - Override the `buildSuccessEvent()`, `buildFailureEvent()` and/or `buildProgressEvent()`
- - Success and Failure will be sent automatically when the `Task` finishes or fail, but it's up to your `Task` to report its own Progress change by calling `postProgress(progress)`
+Simply create a `Listener` and register/unregister it to listen for events:
 ```
-public class MyTask extends Task<MyTask.Success, MyTask.Failure, MyTask.Progress> {
-    public static class Success extends SuccessEvent {
-        // Those objects are POJO and you can add any data you want to them
-    }
-    public static class Failure extends FailureEvent {}
-    public static class Progress extends ProgressEvent {
-        public Progress(int progress) {
-            super(progress);
-        }
+LoomListener listener = new GenericUiThreadListener {
+    @Override
+    public String taskName() {
+        // The name of the task we're listening to, this must match Task.name()
+        return "MyTask";
     }
 
     @Override
-    protected void runTask() throws Exception {
-        for (int i = 0; i < 100; i++) {
-            postProgress(i);
-            Thread.sleep(100);
-        }
-    }
-
-    @Nullable
-    @Override
-    protected Success buildSuccessEvent() {
-        return new Success();
-    }
-
-    @Nullable
-    @Override
-    protected Failure buildFailureEvent() {
-        return new Failure();
-    }
-
-    @Nullable
-    @Override
-    protected Progress buildProgressEvent(@SuppressWarnings("UnusedParameters") int progress) {
-        return new Progress(progress);
-    }
-}
-```
-
-Create a `Listener`:
-```
-LoomListener listener = new SimpleUiThreadListener<MyTask.Success, MyTask.Failure, MyTask.Progress> {
-    @Override
-    public void onSuccess(MyTask.Success event) {
+    public void onSuccess(SuccessEvent event) {
         // Success received
     }
 
     @Override
-    public void onFailure(MyTask.Failure event) {
-      // Failure receive
+    public void onFailure(FailureEvent event) {
+      // Failure received
     }
 
     @Override
-    public void MyTask(TaskCancellable.Progress event) {
+    public void MyTask(ProgressEvent event) {
         // Progress received
         mProgressBar.setProgress(event.getProgress());
     }
 };
 ```
-Register (and unregister) the listener on Loom
------------------------------
+
 ```
 public class MyActivity extends Activity {
     ...
     @Override
     public void onResume() {
         super.onResume();
-        
+
         Loom.registerListener(listener);
     }
     
     @Override
     public void onPause() {
         super.onPause();
-        
+
         Loom.unregisterListener(listener);
     }
 }
+```
+
+Custom events
+-------------
+The default `SuccessEvent`, `FailureEvent` and `ProgressEvent` don't pass much information back to the listeners, but you can add any data to it by subclassing those events:
+
+1. Create a custom event type
+```
+class NumberGeneratorSuccess extends SuccessEvent {
+    final int number;
+
+    public NumberGeneratorSuccess(int number) {
+        this.number = number;
+    }
+}
+```
+
+2. Override `buildSuccessEvent()`, `buildErrorEvent()` and/or `buildProgressEvent()` to return and initialize your custom event types
+```
+/**
+ * Simple task that reports its success and failure to its listeners but no progress
+ */
+class NumberGeneratorTask extends Task {
+    private int mGeneratedNumber;
+
+    @Override
+    protected void runTask() throws Exception {
+        Thread.sleep(2000);
+        mGeneratwedNumber = new Random().nextInt();
+    }
+
+    @Override
+    public String name() {
+        return "NumberGenerator"
+    }
+
+    @Nullable
+    @Override
+    protected SuccessEvent buildSuccessEvent() {
+        return new NumberGeneratorSuccess(mGeneratedNumber);
+    }
+}
+```
+
+3. Create a `LoomListener` with the matching event types
+```
+LoomListener mListener = new UiThreadListener<NumberGeneratorSuccess, FailureEvent, ProgressEvent>() {
+    @NonNull
+    @Override
+    public String taskName() {
+        return "NumberGenerator";
+    }
+
+    @Override
+    public void onSuccess(NumberGeneratorSuccess event) {
+        Log.i("LoomSample", "Generated number: " + event.number);
+    }
+
+    @Override
+    public void onFailure(FailureEvent event) {
+        Log.i("LoomSample", "Failure Received for task NoProgress");
+    }
+};
 ```
 
 Cancel a task

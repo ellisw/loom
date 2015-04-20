@@ -4,6 +4,7 @@ import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 
+import com.nbarraille.loom.events.Event;
 import com.nbarraille.loom.listeners.LoomListener;
 
 import java.lang.ref.WeakReference;
@@ -19,7 +20,7 @@ import de.greenrobot.event.EventBus;
 public class TaskManager {
     // By default Loom will execute tasks in the default AsyncTask thread pool
     private static final Executor DEFAULT_EXECUTOR = AsyncTask.THREAD_POOL_EXECUTOR;
-    private static final EventBus DEFAULT_BUS = EventBus.builder().logNoSubscriberMessages(true).sendNoSubscriberEvent(true).build();
+    private static final EventBus DEFAULT_BUS = EventBus.builder().logNoSubscriberMessages(false).sendNoSubscriberEvent(false).build();
 
     private final Executor mExecutor; // The executor on which the tasks will be executed
     private final EventBus mEventBus; // The EventBus used to notify the listeners
@@ -102,8 +103,9 @@ public class TaskManager {
         mEventBus.unregister(listener);
     }
 
-    final void postEvent(@Nullable Object event) {
+    final void postEvent(Task task, @Nullable Event event) {
         if (event != null) {
+            event.setTaskName(task.name());
             mEventBus.post(event);
         }
     }
@@ -119,10 +121,10 @@ public class TaskManager {
             task.onCancelled();
             return;
         } catch (Exception e) {
-            postEvent(task.buildFailureEvent());
+            postEvent(task, task.buildFailureEvent());
             return;
         }
 
-        postEvent(task.buildSuccessEvent());
+        postEvent(task, task.buildSuccessEvent());
     }
 }

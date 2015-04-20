@@ -2,6 +2,7 @@ package com.nbarraille.loom.sample;
 
 import android.app.Fragment;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -10,8 +11,12 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 
 import com.nbarraille.loom.Loom;
+import com.nbarraille.loom.Task;
+import com.nbarraille.loom.events.FailureEvent;
+import com.nbarraille.loom.events.ProgressEvent;
+import com.nbarraille.loom.events.SuccessEvent;
+import com.nbarraille.loom.listeners.GenericUiThreadListener;
 import com.nbarraille.loom.listeners.LoomListener;
-import com.nbarraille.loom.listeners.SimpleUiThreadListener;
 
 /**
  * Fragment showing how to start a task and setup a listener that will update a progress bar when
@@ -21,31 +26,38 @@ import com.nbarraille.loom.listeners.SimpleUiThreadListener;
  * fragment!
  */
 public class CancellableFragment extends Fragment {
+    private final static String TASK_NAME = "CancellableTask";
     private final static String SIS_KEY_TASK_ID = "task_id";
     private ProgressBar mProgressBar;
     private int mTaskId;
 
-    private LoomListener mListener = new SimpleUiThreadListener<TaskCancellable.Success, TaskCancellable.Failure, TaskCancellable.Progress>() {
-                @Override
-                public void onSuccess(TaskCancellable.Success event) {
-                    Log.i("FlySample", "Success Received for task Cancellable");
-                    mProgressBar.setProgress(100);
-                    mTaskId = -1;
-                }
+    private LoomListener mListener = new GenericUiThreadListener() {
+        @NonNull
+        @Override
+        public String taskName() {
+            return TASK_NAME;
+        }
 
-                @Override
-                public void onFailure(TaskCancellable.Failure event) {
-                    Log.i("FlySample", "Failure Received for task Cancellable");
-                    mProgressBar.setProgress(0);
-                    mTaskId = -1;
-                }
+        @Override
+        public void onSuccess(SuccessEvent event) {
+            Log.i("FlySample", "Success Received for task Cancellable");
+            mProgressBar.setProgress(100);
+            mTaskId = -1;
+        }
 
-                @Override
-                public void onProgress(TaskCancellable.Progress event) {
-                    Log.i("FlySample", "Progress Received for task Cancellable: " + event.getProgress());
-                    mProgressBar.setProgress(event.getProgress());
-                }
-            };
+        @Override
+        public void onFailure(FailureEvent event) {
+            Log.i("FlySample", "Failure Received for task Cancellable");
+            mProgressBar.setProgress(0);
+            mTaskId = -1;
+        }
+
+        @Override
+        public void onProgress(ProgressEvent event) {
+            Log.i("FlySample", "Progress Received for task Cancellable: " + event.getProgress());
+            mProgressBar.setProgress(event.getProgress());
+        }
+    };
 
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -104,5 +116,34 @@ public class CancellableFragment extends Fragment {
         super.onPause();
 
         Loom.unregisterListener(mListener);
+    }
+
+    /**
+     * A simple task that reports it's success, failure, and progress to listeners and is cancellable
+     */
+    public static class TaskCancellable extends Task {
+        @Override
+        protected String name() {
+            return TASK_NAME;
+        }
+
+        @Override
+        protected void runTask() throws Exception {
+            for (int i = 0; i < 100; i++) {
+                Log.i("FlySample", "Task Cancellable at " + i);
+                postProgress(i);
+                Thread.sleep(100);
+            }
+        }
+
+        @Override
+        protected boolean isCancellable() {
+            return true;
+        }
+
+        @Override
+        protected void onCancelled() {
+            Log.i("FlySample", "Task Cancellable cancelled, cleaning up...");
+        }
     }
 }

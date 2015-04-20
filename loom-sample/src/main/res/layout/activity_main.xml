@@ -8,12 +8,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
 
-        <fragment android:name="com.nbarraille.loom.sample.NoCallbackFragment"
-            android:id="@+id/no_callback_fragment"
-            android:layout_width="match_parent"
-            android:layout_height="@dimen/fragment_height"/>
-
-        <fragment android:name="com.nbarraille.loom.sample.NoProgressFragment"
+        <fragment android:name="com.nbarraille.loom.sample.CustomEventsFragment"
             android:id="@+id/no_progress_fragment"
             android:layout_width="match_parent"
             android:layout_height="@dimen/fragment_height"/>
