@@ -40,21 +40,21 @@ public class CancellableFragment extends Fragment {
 
         @Override
         public void onSuccess(SuccessEvent event) {
-            Log.i("FlySample", "Success Received for task Cancellable");
+            Log.i("LoomSample", "Success Received for task Cancellable");
             mProgressBar.setProgress(100);
             mTaskId = -1;
         }
 
         @Override
         public void onFailure(FailureEvent event) {
-            Log.i("FlySample", "Failure Received for task Cancellable");
+            Log.i("LoomSample", "Failure Received for task Cancellable");
             mProgressBar.setProgress(0);
             mTaskId = -1;
         }
 
         @Override
         public void onProgress(ProgressEvent event) {
-            Log.i("FlySample", "Progress Received for task Cancellable: " + event.getProgress());
+            Log.i("LoomSample", "Progress Received for task Cancellable: " + event.getProgress());
             mProgressBar.setProgress(event.getProgress());
         }
     };
@@ -78,7 +78,7 @@ public class CancellableFragment extends Fragment {
                 if (mTaskId == -1) {
                     mTaskId = Loom.execute(new TaskCancellable());
                 } else {
-                    Log.i("FlySample", "A Cancellable task is already running");
+                    Log.i("LoomSample", "A Cancellable task is already running");
                 }
             }
         });
@@ -130,7 +130,7 @@ public class CancellableFragment extends Fragment {
         @Override
         protected void runTask() throws Exception {
             for (int i = 0; i < 100; i++) {
-                Log.i("FlySample", "Task Cancellable at " + i);
+                Log.i("LoomSample", "Task Cancellable at " + i);
                 postProgress(i);
                 Thread.sleep(100);
             }
@@ -143,7 +143,7 @@ public class CancellableFragment extends Fragment {
 
         @Override
         protected void onCancelled() {
-            Log.i("FlySample", "Task Cancellable cancelled, cleaning up...");
+            Log.i("LoomSample", "Task Cancellable cancelled, cleaning up...");
         }
     }
 }

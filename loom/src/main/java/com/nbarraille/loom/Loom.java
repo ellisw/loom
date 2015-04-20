@@ -42,6 +42,16 @@ public abstract class Loom {
     }
 
     /**
+     * Cancels all the tasks with the given name.
+     * @param name the name of the tasks
+     * @throws IllegalStateException if one of the task with the given name is not cancellable
+     */
+    @SuppressWarnings("unused")
+    public static void cancelTasks(String name) throws IllegalStateException {
+        getDefaultTaskManager().cancelTasks(name);
+    }
+
+    /**
      * Executes a task in the background with the default Fly instance.
      * @param task the task to execute
      * @return the ID of the task

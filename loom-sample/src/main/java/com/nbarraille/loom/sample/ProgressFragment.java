@@ -31,19 +31,19 @@ public class ProgressFragment extends Fragment {
     private LoomListener mListener = new GenericUiThreadListener() {
         @Override
         public void onSuccess(SuccessEvent event) {
-            Log.i("FlySample", "Success Received for task Progress");
+            Log.i("LoomSample", "Success Received for task Progress");
             mProgressBar.setProgress(100);
         }
 
         @Override
         public void onFailure(FailureEvent event) {
-            Log.i("FlySample", "Failure Received for task Progress");
+            Log.i("LoomSample", "Failure Received for task Progress");
             mProgressBar.setProgress(0);
         }
 
         @Override
         public void onProgress(ProgressEvent event) {
-            Log.i("FlySample", "Progress Received for task Progress: " + event.getProgress());
+            Log.i("LoomSample", "Progress Received for task Progress: " + event.getProgress());
             mProgressBar.setProgress(event.getProgress());
         }
 
@@ -97,7 +97,7 @@ public class ProgressFragment extends Fragment {
         @Override
         protected void runTask() throws Exception {
             for (int i = 0; i < 100; i++) {
-                Log.i("FlySample", name() + " at " + i);
+                Log.i("LoomSample", name() + " at " + i);
                 postProgress(i);
                 Thread.sleep(100);
             }

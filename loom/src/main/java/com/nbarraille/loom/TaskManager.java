@@ -8,8 +8,10 @@ import com.nbarraille.loom.events.Event;
 import com.nbarraille.loom.listeners.LoomListener;
 
 import java.lang.ref.WeakReference;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 import de.greenrobot.event.EventBus;
@@ -24,7 +26,8 @@ public class TaskManager {
 
     private final Executor mExecutor; // The executor on which the tasks will be executed
     private final EventBus mEventBus; // The EventBus used to notify the listeners
-    private final Map<Integer, WeakReference<Task>> mCurrentTasks;
+    private final Map<Integer, WeakReference<Task>> mCurrentTasksById;
+    private final Map<String, Set<Integer>> mCurrentTasksIds;
 
     /**
      * Builder with fluent API to build TaskManager objects
@@ -59,7 +62,8 @@ public class TaskManager {
     }
 
     protected TaskManager(Executor executor, EventBus eventBus) {
-        mCurrentTasks = new ConcurrentHashMap<>();
+        mCurrentTasksById = new HashMap<>();
+        mCurrentTasksIds = new HashMap<>();
         mExecutor = executor;
         mEventBus = eventBus;
     }
@@ -70,25 +74,64 @@ public class TaskManager {
      * @throws IllegalStateException if the task with the given ID is not cancellable
      */
     public void cancelTask(int taskId) throws IllegalStateException {
-        WeakReference<Task> ref = mCurrentTasks.remove(taskId);
-        if (ref != null) {
-            Task task = ref.get();
-            if (task != null) {
-                task.cancel();
+        Task task = null;
+        synchronized (mCurrentTasksById) {
+            WeakReference<Task> ref = mCurrentTasksById.remove(taskId);
+            if (ref != null) {
+                task = ref.get();
+                Set<Integer> taskIds = mCurrentTasksIds.get(task.name());
+                if (taskIds != null) {
+                    taskIds.remove(taskId);
+                }
+            }
+        }
+
+        if (task != null) {
+            task.cancel();
+        }
+    }
+
+    /**
+     * Cancels all the tasks (scheduled or running) for the given name.
+     * @param name the name of the task
+     * @throws IllegalStateException if one of the task with that name is not cancellable
+     */
+    public void cancelTasks(String name) {
+        synchronized (mCurrentTasksById) {
+            Set<Integer> taskIds = mCurrentTasksIds.get(name);
+            if (taskIds != null) {
+                for (int taskId : taskIds) {
+                    cancelTask(taskId);
+                }
             }
         }
     }
 
     public int execute(final Task task) {
         final int taskId = task.getId();
-        mCurrentTasks.put(taskId, new WeakReference<>(task));
+        final String taskName = task.name();
+        synchronized (mCurrentTasksById) {
+            mCurrentTasksById.put(taskId, new WeakReference<>(task));
+            Set<Integer> taskIds = mCurrentTasksIds.get(taskName);
+            if (taskIds == null) {
+                taskIds = new HashSet<>();
+                mCurrentTasksIds.put(taskName, taskIds);
+            }
+            taskIds.add(taskId);
+        }
         mExecutor.execute(new Runnable() {
             @Override
             public void run() {
                 try {
                     runTask(task);
                 } finally {
-                    mCurrentTasks.remove(taskId);
+                    synchronized (mCurrentTasksById) {
+                        mCurrentTasksById.remove(taskId);
+                        Set<Integer> taskIds = mCurrentTasksIds.get(taskName);
+                        if (taskIds != null) {
+                            taskIds.remove(taskId);
+                        }
+                    }
                 }
             }
         });
