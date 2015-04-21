@@ -14,8 +14,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Simple EventCatcher that keep tracks of the event is received for testing purposes.
- * It will automatically make test fail if multiple success/failure events are received
+ * Simple EventCatcher that keeps track of the event it received for testing purposes.
+ * It will automatically make tests fail if inconsistent events are received
  */
 public class EventCatcher <Success extends SuccessEvent, Failure extends FailureEvent, Progress extends ProgressEvent>
         extends BackgroundListener<Success, Failure, Progress> {

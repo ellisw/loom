@@ -24,7 +24,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class LoomTest {
-    private final static long TIMEOUT = 10;
+    private final static long TIMEOUT = 10; // Time to wait for the executor to finish, in seconds
     private TaskManager mTaskManager;
     private ExecutorService mExecutor;
 
@@ -616,5 +616,98 @@ public class LoomTest {
         exception.expect(NullPointerException.class);
         //noinspection ConstantConditions
         mTaskManager.execute(null);
+    }
+
+    @Test
+    public void testSingleThreadedExecution() throws Exception {
+        // On a single threaded executor, the second task should not start until the first one finishes
+        // EventCatcher's implementation will also make sure that listeners won't receive events for
+        // other tasks
+        EventCatcher catcher1 = new EventCatcher("task1");
+        EventCatcher catcher2 = new EventCatcher("task2");
+        final Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "task1";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(1000);
+            }
+        };
+
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "task2";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                if (!task1.isFinished()) {
+                    Assert.fail("Task2 started before Task1 finished");
+                }
+                Thread.sleep(1000);
+            }
+        };
+        mTaskManager.registerListener(catcher1);
+        mTaskManager.registerListener(catcher2);
+        mTaskManager.execute(task1);
+        mTaskManager.execute(task2);
+        waitForIdle();
+        mTaskManager.unregisterListener(catcher1);
+        mTaskManager.unregisterListener(catcher2);
+
+        assertNotNull("Success was not received", catcher1.getReceivedSuccess());
+        assertNotNull("Success was not received", catcher2.getReceivedSuccess());
+    }
+
+    @Test
+    public void testMultiThreadedExecution() throws Exception {
+        // On a multi threaded executor, the second task should start before the first one finishes
+        // EventCatcher's implementation will also make sure that listeners won't receive events for
+        // other tasks
+        EventCatcher catcher1 = new EventCatcher("task1");
+        EventCatcher catcher2 = new EventCatcher("task2");
+        final Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "task1";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(1000);
+            }
+        };
+
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "task2";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                if (task1.isFinished()) {
+                    Assert.fail("Task2 started after Task1 finished");
+                }
+                Thread.sleep(1000);
+            }
+        };
+        mExecutor = Executors.newFixedThreadPool(2);
+        mTaskManager = new TaskManager.Builder().setExecutor(mExecutor).build();
+
+        mTaskManager.registerListener(catcher1);
+        mTaskManager.registerListener(catcher2);
+        mTaskManager.execute(task1);
+        mTaskManager.execute(task2);
+        waitForIdle();
+        mTaskManager.unregisterListener(catcher1);
+        mTaskManager.unregisterListener(catcher2);
+
+        assertNotNull("Success was not received", catcher1.getReceivedSuccess());
+        assertNotNull("Success was not received", catcher2.getReceivedSuccess());
     }
 }

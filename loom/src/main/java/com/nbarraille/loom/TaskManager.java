@@ -66,6 +66,7 @@ public class TaskManager {
         public TaskManager build() {
             EventBus eventBus = mConfig.mEventBus == null ? DEFAULT_BUS : mConfig.mEventBus;
             Executor executor = mConfig.mExecutor == null ? DEFAULT_EXECUTOR :mConfig.mExecutor;
+
             boolean loggingEnabled = mConfig.mLoggingEnabled;
             return new TaskManager(executor, eventBus, loggingEnabled);
         }
