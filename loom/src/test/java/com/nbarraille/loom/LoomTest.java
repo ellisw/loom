@@ -24,6 +24,8 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
 public class LoomTest {
+    private final static long TASK_DURATION = 300; // The duration of a fake task, in ms
+    private final static long DURATION_BEFORE_CANCEL = 100; // The amount of time we should wait before cancelling a task to make sure it starts its execution
     private final static long TIMEOUT = 10; // Time to wait for the executor to finish, in seconds
     private TaskManager mTaskManager;
     private ExecutorService mExecutor;
@@ -264,14 +266,14 @@ public class LoomTest {
             @Override
             protected void runTask() throws Exception {
                 postProgress(1);
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
                 Assert.fail("Task did not stop");
             }
         };
 
         mTaskManager.registerListener(catcher);
         mTaskManager.execute(task);
-        Thread.sleep(100);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
         task.cancel();
         waitForIdle();
         mTaskManager.unregisterListener(catcher);
@@ -455,7 +457,7 @@ public class LoomTest {
 
             @Override
             protected void runTask() throws Exception {
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
                 Assert.fail("Task did not stop");
             }
 
@@ -471,7 +473,7 @@ public class LoomTest {
         };
 
         mTaskManager.execute(task);
-        Thread.sleep(100);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
         task.cancel();
         waitForIdle();
 
@@ -576,7 +578,7 @@ public class LoomTest {
 
             @Override
             protected void runTask() throws Exception {
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
                 Assert.fail("Task did not stop");
             }
 
@@ -592,7 +594,7 @@ public class LoomTest {
         };
 
         mTaskManager.execute(task);
-        Thread.sleep(100);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
         task.cancel();
         waitForIdle();
     }
@@ -633,7 +635,7 @@ public class LoomTest {
 
             @Override
             protected void runTask() throws Exception {
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
             }
         };
 
@@ -648,7 +650,7 @@ public class LoomTest {
                 if (!task1.isFinished()) {
                     Assert.fail("Task2 started before Task1 finished");
                 }
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
             }
         };
         mTaskManager.registerListener(catcher1);
@@ -678,7 +680,7 @@ public class LoomTest {
 
             @Override
             protected void runTask() throws Exception {
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
             }
         };
 
@@ -693,7 +695,7 @@ public class LoomTest {
                 if (task1.isFinished()) {
                     Assert.fail("Task2 started after Task1 finished");
                 }
-                Thread.sleep(1000);
+                Thread.sleep(TASK_DURATION);
             }
         };
         mExecutor = Executors.newFixedThreadPool(2);
