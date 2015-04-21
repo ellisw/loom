@@ -14,4 +14,13 @@ public class ProgressEvent extends Event {
     public int getProgress() {
         return mProgress;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o instanceof ProgressEvent) {
+            return mProgress == ((ProgressEvent) o).getProgress();
+        } else {
+            return false;
+        }
+    }
 }

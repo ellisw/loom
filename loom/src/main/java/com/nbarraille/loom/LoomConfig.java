@@ -10,6 +10,7 @@ import de.greenrobot.event.EventBus;
 public class LoomConfig {
     protected Executor mExecutor;
     protected EventBus mEventBus;
+    protected boolean mLoggingEnabled = false;
 
     /**
      * Sets the executor on which the tasks are going to be executed
@@ -28,6 +29,17 @@ public class LoomConfig {
      */
     public LoomConfig setBus(EventBus eventBus) {
         mEventBus = eventBus;
+        return this;
+    }
+
+    /**
+     * Enables/Disables logs.
+     * Logs are disabled by default
+     * @param enabled true for enabling logging, false for disabling it
+     * @return the same config object
+     */
+    public LoomConfig setLoggingEnabled(boolean enabled) {
+        mLoggingEnabled = enabled;
         return this;
     }
 }

@@ -3,6 +3,7 @@ package com.nbarraille.loom;
 import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.util.Log;
 
 import com.nbarraille.loom.events.Event;
 import com.nbarraille.loom.listeners.LoomListener;
@@ -28,6 +29,7 @@ public class TaskManager {
     private final EventBus mEventBus; // The EventBus used to notify the listeners
     private final Map<Integer, WeakReference<Task>> mCurrentTasksById;
     private final Map<String, Set<Integer>> mCurrentTasksIds;
+    private final boolean mIsLoggingEnabled;
 
     /**
      * Builder with fluent API to build TaskManager objects
@@ -49,23 +51,32 @@ public class TaskManager {
             return this;
         }
 
+        @SuppressWarnings("unused")
         public Builder setBus(EventBus eventbus) {
             mConfig.setBus(eventbus);
+            return this;
+        }
+
+        @SuppressWarnings("unused")
+        public Builder setLoggingEnabled(boolean loggingEnabled) {
+            mConfig.setLoggingEnabled(loggingEnabled);
             return this;
         }
 
         public TaskManager build() {
             EventBus eventBus = mConfig.mEventBus == null ? DEFAULT_BUS : mConfig.mEventBus;
             Executor executor = mConfig.mExecutor == null ? DEFAULT_EXECUTOR :mConfig.mExecutor;
-            return new TaskManager(executor, eventBus);
+            boolean loggingEnabled = mConfig.mLoggingEnabled;
+            return new TaskManager(executor, eventBus, loggingEnabled);
         }
     }
 
-    protected TaskManager(Executor executor, EventBus eventBus) {
+    protected TaskManager(Executor executor, EventBus eventBus, boolean loggingEnabled) {
         mCurrentTasksById = new HashMap<>();
         mCurrentTasksIds = new HashMap<>();
         mExecutor = executor;
         mEventBus = eventBus;
+        mIsLoggingEnabled = loggingEnabled;
     }
     /**
      * Cancels the task with the given ID. If no task with the given ID exists, this will have no
@@ -107,7 +118,13 @@ public class TaskManager {
         }
     }
 
-    public int execute(final Task task) {
+    /**
+     * Executes a task in the background. The task will run on this TaskManager's executor.
+     *
+     * @param task the task to execute, cannot be null
+     * @return the ID of that task, that can be used later on to cancel it if necessary
+     */
+    public int execute(@NonNull final Task task) {
         final int taskId = task.getId();
         final String taskName = task.name();
         synchronized (mCurrentTasksById) {
@@ -138,11 +155,21 @@ public class TaskManager {
         return taskId;
     }
 
-    public void registerListener(LoomListener listener) {
+    /**
+     * Registers a listener with this instance of TaskManager.
+     * The listener will receive all the events for its task name
+     * @param listener the listener, cannot be null
+     */
+    public void registerListener(@NonNull LoomListener listener) {
         mEventBus.register(listener);
     }
 
-    public void unregisterListener(LoomListener listener) {
+    /**
+     * Unregisters a listener with this instance of TaskManager.
+     * The listener will stop receiving events
+     * @param listener the listener, cannot be null
+     */
+    public void unregisterListener(@NonNull LoomListener listener) {
         mEventBus.unregister(listener);
     }
 
@@ -158,16 +185,35 @@ public class TaskManager {
             return;
         }
         try {
-           task.run(this);
+            task.run(this);
         } catch (InterruptedException e) {
             // The task has been interrupted
-            task.onCancelled();
+            try {
+                task.onCancelled();
+            } catch (Exception e1) {
+                if (mIsLoggingEnabled) {
+                    Log.e(Loom.LOG_TAG, "Error while performing onCancelled(): " + e1.getMessage(), e1);
+                }
+            }
             return;
         } catch (Exception e) {
+            try {
+                task.onFailure(e);
+            } catch (Exception e1) {
+                if (mIsLoggingEnabled) {
+                    Log.e(Loom.LOG_TAG, "Error while performing onFailure(): " + e1.getMessage(), e1);
+                }
+            }
             postEvent(task, task.buildFailureEvent());
             return;
         }
-
+        try {
+            task.onSuccess();
+        } catch (Exception e) {
+            if (mIsLoggingEnabled) {
+                Log.e(Loom.LOG_TAG, "Error while performing onSuccess(): " + e.getMessage(), e);
+            }
+        }
         postEvent(task, task.buildSuccessEvent());
     }
 }

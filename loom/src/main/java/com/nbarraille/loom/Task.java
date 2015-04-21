@@ -14,6 +14,7 @@ public abstract class Task {
     @Nullable
     private volatile Thread mThread; // The thread on which that task is running. Will be null until it starts executing
     private volatile boolean mIsCancelled = false; // Whether or not that task has been cancelled
+    private volatile boolean mIsFinished = false; // Whether or not that task has been cancelled
 
     /**
      * @return the ID of the task
@@ -82,6 +83,8 @@ public abstract class Task {
     /**
      * Callback for subclasses to implement being executed when the task has been cancelled.
      * All the cleanup should be done here
+     * This will not be called if the task did not start running yet, as there will be no cleanup
+     * in this case
      */
     protected void onCancelled() {}
 
@@ -96,6 +99,7 @@ public abstract class Task {
         try {
             runTask();
         } finally {
+            mIsFinished = true;
             mThread = null;
         }
     }
@@ -110,8 +114,16 @@ public abstract class Task {
         if (progress < 0 || progress > 100) {
             throw new IllegalArgumentException("Invalid progress: " + progress);
         }
+        if (isFinished()) {
+            throw new IllegalStateException("Cannot send progress for a finished task");
+        }
+        if (isCancelled()) {
+            // Listeners don't want to be noticed about progress after a task has been cancelled
+            return;
+        }
+
         ProgressEvent event = buildProgressEvent(progress);
-        if (event != null) {
+        if (event != null && mManager != null) {
             mManager.postEvent(this, event);
         }
     }
@@ -131,6 +143,13 @@ public abstract class Task {
      */
     protected boolean isCancelled() {
         return mIsCancelled;
+    }
+
+    /**
+     * @return whether or not the task has finished
+     */
+    protected boolean isFinished() {
+        return mIsFinished;
     }
 
     /**

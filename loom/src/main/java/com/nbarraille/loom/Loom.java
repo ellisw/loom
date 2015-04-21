@@ -6,6 +6,7 @@ import com.nbarraille.loom.listeners.LoomListener;
  * Loom let's you run background tasks and manage them in a very simple way.
  */
 public abstract class Loom {
+    protected static final String LOG_TAG = "Loom";
     private static LoomConfig sConfig;
     private static TaskManager sDefaultInstance;
 
