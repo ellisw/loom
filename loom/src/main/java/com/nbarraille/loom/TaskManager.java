@@ -1,6 +1,5 @@
 package com.nbarraille.loom;
 
-import android.os.AsyncTask;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.util.Log;
@@ -14,6 +13,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import de.greenrobot.event.EventBus;
 
@@ -21,10 +21,6 @@ import de.greenrobot.event.EventBus;
  * TaskManager manages the tasks and takes care of executing them on the appropriate Executor
  */
 public class TaskManager {
-    // By default Loom will execute tasks in the default AsyncTask thread pool
-    private static final Executor DEFAULT_EXECUTOR = AsyncTask.THREAD_POOL_EXECUTOR;
-    private static final EventBus DEFAULT_BUS = EventBus.builder().logNoSubscriberMessages(false).sendNoSubscriberEvent(false).build();
-
     private final Executor mExecutor; // The executor on which the tasks will be executed
     private final EventBus mEventBus; // The EventBus used to notify the listeners
     private final Map<Integer, WeakReference<Task>> mCurrentTasksById;
@@ -63,9 +59,17 @@ public class TaskManager {
             return this;
         }
 
+        private static Executor buildDefaultExecutor() {
+            return Executors.newFixedThreadPool(2);
+        }
+
+        private static EventBus buildDefaultBus() {
+            return EventBus.builder().logNoSubscriberMessages(false).sendNoSubscriberEvent(false).build();
+        }
+
         public TaskManager build() {
-            EventBus eventBus = mConfig.mEventBus == null ? DEFAULT_BUS : mConfig.mEventBus;
-            Executor executor = mConfig.mExecutor == null ? DEFAULT_EXECUTOR :mConfig.mExecutor;
+            EventBus eventBus = mConfig.mEventBus == null ? buildDefaultBus() : mConfig.mEventBus;
+            Executor executor = mConfig.mExecutor == null ? buildDefaultExecutor() : mConfig.mExecutor;
 
             boolean loggingEnabled = mConfig.mLoggingEnabled;
             return new TaskManager(executor, eventBus, loggingEnabled);
@@ -217,4 +221,13 @@ public class TaskManager {
         }
         postEvent(task, task.buildSuccessEvent());
     }
+
+    /**
+     * @return the executor used by this task manager
+     */
+    public Executor getExecutor() {
+        return mExecutor;
+    }
+
+
 }

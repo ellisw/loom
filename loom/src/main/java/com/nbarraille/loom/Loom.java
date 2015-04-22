@@ -1,5 +1,7 @@
 package com.nbarraille.loom;
 
+import android.os.AsyncTask;
+
 import com.nbarraille.loom.listeners.LoomListener;
 
 /**
@@ -25,6 +27,9 @@ public abstract class Loom {
             TaskManager.Builder builder = new TaskManager.Builder();
             if (sConfig != null) {
                 builder.setConfig(sConfig);
+            } else {
+                // By default Loom executes tasks on the default AsyncTask executor
+                builder.setExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             }
             sDefaultInstance = builder.build();
         }

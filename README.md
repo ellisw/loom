@@ -1,7 +1,7 @@
 Loom
 ====
 
-Loom is a simple and powerful library for running and manging tasks in background threads for Android.
+Loom is a simple and powerful library for running and managing tasks in background threads for Android.
 It executes tasks in the background and uses an Event Bus to notify listeners of the progress of the task.
 
 Context

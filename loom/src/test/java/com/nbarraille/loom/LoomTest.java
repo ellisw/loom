@@ -14,6 +14,7 @@ import org.junit.Test;
 import org.junit.rules.ExpectedException;
 
 import java.util.List;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -28,15 +29,13 @@ public class LoomTest {
     private final static long DURATION_BEFORE_CANCEL = 100; // The amount of time we should wait before cancelling a task to make sure it starts its execution
     private final static long TIMEOUT = 10; // Time to wait for the executor to finish, in seconds
     private TaskManager mTaskManager;
-    private ExecutorService mExecutor;
 
     @Rule
     public ExpectedException exception = ExpectedException.none();
 
     @Before
     public void setUp() {
-        mExecutor = Executors.newSingleThreadExecutor();
-        mTaskManager = new TaskManager.Builder().setExecutor(mExecutor).build();
+        mTaskManager = new TaskManager.Builder().setExecutor(Executors.newSingleThreadExecutor()).build();
     }
 
     /**
@@ -44,8 +43,9 @@ public class LoomTest {
      * @throws InterruptedException
      */
     private void waitForIdle() throws InterruptedException {
-        mExecutor.shutdown();
-        mExecutor.awaitTermination(TIMEOUT, TimeUnit.SECONDS);
+        ExecutorService executor = ((ExecutorService) mTaskManager.getExecutor());
+        executor.shutdown();
+        executor.awaitTermination(TIMEOUT, TimeUnit.SECONDS);
     }
 
     @Test
@@ -653,6 +653,7 @@ public class LoomTest {
                 Thread.sleep(TASK_DURATION);
             }
         };
+        mTaskManager = new TaskManager.Builder().setExecutor(Executors.newSingleThreadExecutor()).build();
         mTaskManager.registerListener(catcher1);
         mTaskManager.registerListener(catcher2);
         mTaskManager.execute(task1);
@@ -698,8 +699,7 @@ public class LoomTest {
                 Thread.sleep(TASK_DURATION);
             }
         };
-        mExecutor = Executors.newFixedThreadPool(2);
-        mTaskManager = new TaskManager.Builder().setExecutor(mExecutor).build();
+        mTaskManager = new TaskManager.Builder().setExecutor(Executors.newFixedThreadPool(2)).build();
 
         mTaskManager.registerListener(catcher1);
         mTaskManager.registerListener(catcher2);
@@ -708,6 +708,54 @@ public class LoomTest {
         waitForIdle();
         mTaskManager.unregisterListener(catcher1);
         mTaskManager.unregisterListener(catcher2);
+
+        assertNotNull("Success was not received", catcher1.getReceivedSuccess());
+        assertNotNull("Success was not received", catcher2.getReceivedSuccess());
+    }
+
+    @Test
+    public void testMultipleTaskManagers() throws Exception {
+        // On a multi threaded executor, the second task should start before the first one finishes
+        // EventCatcher's implementation will also make sure that listeners won't receive events for
+        // other tasks
+        EventCatcher catcher1 = new EventCatcher("task");
+        EventCatcher catcher2 = new EventCatcher("task");
+        final Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "task";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+        };
+
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "task";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+        };
+
+        TaskManager manager1 = new TaskManager.Builder().build();
+        TaskManager manager2 = new TaskManager.Builder().build();
+        manager1.registerListener(catcher1);
+        manager2.registerListener(catcher2);
+        manager1.execute(task1);
+        manager2.execute(task2);
+        ((ExecutorService) manager1.getExecutor()).shutdown();
+        ((ExecutorService) manager1.getExecutor()).awaitTermination(TIMEOUT, TimeUnit.SECONDS);
+        ((ExecutorService) manager2.getExecutor()).shutdown();
+        ((ExecutorService) manager2.getExecutor()).awaitTermination(TIMEOUT, TimeUnit.SECONDS);
+        manager1.unregisterListener(catcher1);
+        manager2.unregisterListener(catcher2);
 
         assertNotNull("Success was not received", catcher1.getReceivedSuccess());
         assertNotNull("Success was not received", catcher2.getReceivedSuccess());
