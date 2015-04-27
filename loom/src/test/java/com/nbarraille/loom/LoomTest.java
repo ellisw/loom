@@ -12,18 +12,24 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
+import org.junit.runner.RunWith;
+import org.robolectric.RobolectricGradleTestRunner;
+import org.robolectric.annotation.Config;
 
 import java.util.List;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
+@RunWith(RobolectricGradleTestRunner.class)
+@Config(constants = BuildConfig.class)
 public class LoomTest {
     private final static long TASK_DURATION = 300; // The duration of a fake task, in ms
     private final static long DURATION_BEFORE_CANCEL = 100; // The amount of time we should wait before cancelling a task to make sure it starts its execution
@@ -759,5 +765,261 @@ public class LoomTest {
 
         assertNotNull("Success was not received", catcher1.getReceivedSuccess());
         assertNotNull("Success was not received", catcher2.getReceivedSuccess());
+    }
+
+    @Test
+    public void testStickyRegisterListenerGetsSuccess() throws Exception {
+        EventCatcher catcher = new EventCatcher("test");
+        Task task = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+            }
+        };
+        mTaskManager.execute(task);
+        waitForIdle();
+        mTaskManager.registerListener(catcher, task.getId());
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+        assertNotNull(catcher.getReceivedSuccess());
+    }
+
+    @Test
+    public void testStickyRegisterListenerGetsFailure() throws Exception {
+        EventCatcher catcher = new EventCatcher("test");
+        Task task = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                throw new RuntimeException("Task failed");
+            }
+        };
+        mTaskManager.execute(task);
+        waitForIdle();
+        mTaskManager.registerListener(catcher, task.getId());
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+        assertNotNull(catcher.getReceivedFailure());
+    }
+
+    @Test
+    public void testNonStickyRegisterListenerDoesNotGetSuccess() throws Exception {
+        EventCatcher catcher = new EventCatcher("test");
+        Task task = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+            }
+        };
+        mTaskManager.execute(task);
+        waitForIdle();
+        mTaskManager.registerListener(catcher);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+        assertNull(catcher.getReceivedSuccess());
+    }
+
+    @Test
+    public void testNonStickyRegisterListenerDoesNotGetFailure() throws Exception {
+        EventCatcher catcher = new EventCatcher("test");
+        Task task = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                throw new RuntimeException("Task failed");
+            }
+        };
+        mTaskManager.execute(task);
+        waitForIdle();
+        mTaskManager.registerListener(catcher);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+        assertNull(catcher.getReceivedFailure());
+    }
+
+    @Test
+    public void testStickyRegisterListenerWithWrongId() throws Exception {
+        EventCatcher catcher = new EventCatcher("test1");
+        Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "test1";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+            }
+        };
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "test2";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+            }
+        };
+        mTaskManager.execute(task1);
+        waitForIdle();
+        mTaskManager.registerListener(catcher, task2.getId());
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+        assertNull(catcher.getReceivedSuccess());
+    }
+
+    @Test
+    public void testGetTaskStatus() throws Exception {
+        Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+        };
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+                throw new RuntimeException("Task failed");
+            }
+        };
+
+        TaskManager tm = new TaskManager.Builder().setExecutor(Executors.newSingleThreadExecutor()).build();
+
+        assertNull(mTaskManager.getTaskStatus(task1.getId()));
+        assertNull(mTaskManager.getTaskStatus(task2.getId()));
+        tm.execute(task1);
+        tm.execute(task2);
+        Thread.sleep(DURATION_BEFORE_CANCEL);
+
+        TaskStatus status1 = tm.getTaskStatus(task1.getId());
+        assertEquals(TaskStatus.STARTED, status1.getStatus());
+        assertTrue(status1.isStarted());
+        assertFalse(status1.isPending());
+        assertFalse(status1.isFinished());
+        assertFalse(status1.isCancelled());
+
+        TaskStatus status2 = tm.getTaskStatus(task2.getId());
+        assertEquals(TaskStatus.PENDING, status2.getStatus());
+        assertTrue(status2.isPending());
+        assertFalse(status2.isStarted());
+        assertFalse(status2.isFinished());
+        assertFalse(status2.isCancelled());
+
+        ((ExecutorService) tm.getExecutor()).shutdown();
+        ((ExecutorService) tm.getExecutor()).awaitTermination(TIMEOUT, TimeUnit.SECONDS);
+
+        status1 = tm.getTaskStatus(task1.getId());
+        assertEquals(TaskStatus.FINISHED, status1.getStatus());
+        assertTrue(status1.isFinished());
+        assertFalse(status1.isStarted());
+        assertFalse(status1.isPending());
+        assertFalse(status1.isCancelled());
+        assertNotNull(status1.getSuccessEvent());
+        assertNull(status1.getFailureEvent());
+
+        status2 = tm.getTaskStatus(task2.getId());
+        assertEquals(TaskStatus.FINISHED, status2.getStatus());
+        assertTrue(status2.isFinished());
+        assertFalse(status2.isStarted());
+        assertFalse(status2.isPending());
+        assertFalse(status2.isCancelled());
+        assertNull(status2.getSuccessEvent());
+        assertNotNull(status2.getFailureEvent());
+    }
+
+    @Test
+    public void testCancelledTaskStatus() throws Exception {
+        Task task = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+
+            @Override
+            protected boolean isCancellable() {
+                return true;
+            }
+        };
+
+        mTaskManager.execute(task);
+        mTaskManager.cancelTask(task.getId());
+
+        TaskStatus status = mTaskManager.getTaskStatus(task.getId());
+        assertEquals(TaskStatus.CANCELLED, status.getStatus());
+        assertFalse(status.isFinished());
+        assertFalse(status.isStarted());
+        assertFalse(status.isPending());
+        assertTrue(status.isCancelled());
+        assertNull(status.getSuccessEvent());
+        assertNull(status.getFailureEvent());
+    }
+
+    @Test
+    public void testBacklogSize() throws Exception {
+        TaskManager tm = new TaskManager.Builder().setMaxBacklogSize(1).build();
+        Task task1 = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+        };
+        Task task2 = new Task() {
+            @Override
+            protected String name() {
+                return "test";
+            }
+
+            @Override
+            protected void runTask() throws Exception {
+                Thread.sleep(TASK_DURATION);
+            }
+        };
+
+        tm.execute(task1);
+        tm.execute(task2);
+
+        assertNull(tm.getTaskStatus(task1.getId()));
+        assertNotNull(tm.getTaskStatus(task2.getId()));
+    }
+
+    @Test
+    public void testInvalidBacklogSize() throws Exception {
+        exception.expect(IllegalArgumentException.class);
+        new TaskManager.Builder().setMaxBacklogSize(0).build();
+
+        exception.expect(IllegalArgumentException.class);
+        new TaskManager.Builder().setMaxBacklogSize(-10).build();
     }
 }

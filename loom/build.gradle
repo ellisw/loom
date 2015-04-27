@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         minSdkVersion 11
-        targetSdkVersion 22
+        targetSdkVersion 21 // Robolectric doesn't support API level 22 yet
         versionCode 1
         versionName "1.0"
     }
@@ -16,14 +16,13 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    testOptions {
-        unitTests.returnDefaultValues = true
-    }
 }
 
 dependencies {
     testCompile 'junit:junit:4.12'
+    testCompile 'org.robolectric:robolectric:3.0-rc2'
 
     compile 'de.greenrobot:eventbus:2.4.0'
     compile 'com.android.support:support-annotations:22.0.0'
+    compile 'com.android.support:support-v4:22.0.0'
 }

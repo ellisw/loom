@@ -1,6 +1,8 @@
 package com.nbarraille.loom;
 
 import android.os.AsyncTask;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
 
 import com.nbarraille.loom.listeners.LoomListener;
 
@@ -58,6 +60,20 @@ public abstract class Loom {
     }
 
     /**
+     * Returns the status of the task with the given ID. This can return null for two reasons:
+     * Either no task exist or has existed with this ID, or the task is too old for the size of the
+     * backlog and has been evicted already.
+     *
+     * @param taskId the ID of the task
+     * @return the status of the task, or null
+     */
+    @SuppressWarnings("unused")
+    @Nullable
+    public static TaskStatus getTaskStatus(int taskId) {
+        return getDefaultTaskManager().getTaskStatus(taskId);
+    }
+
+    /**
      * Executes a task in the background with the default Fly instance.
      * @param task the task to execute
      * @return the ID of the task
@@ -67,10 +83,39 @@ public abstract class Loom {
         return getDefaultTaskManager().execute(task);
     }
 
-    public static void registerListener(LoomListener listener) {
+    /**
+     * Registers a listener with Loom.
+     * The listener will receive all the events for its task name.
+     * If you are interested in past completion events for a given task, use registerListener(listener, taskId)
+     *
+     * @param listener the listener, cannot be null
+     */
+    public static void registerListener(@NonNull LoomListener listener) {
         getDefaultTaskManager().registerListener(listener);
     }
 
+    /**
+     * Registers a listener with Loom.
+     * The listener will receive all the events for its task name.
+     *
+     * If the task with the given ID has already finished (and hasn't been cleared from the backlog
+     * yet), the listener will receive the success or failure callback immediately, in the UI thread.
+     *
+     * It is recommended to use this version of registerListener when task completion events could
+     * have been missed (Activity/Fragment configuration change for example)
+     *
+     * @param listener the listener to register, cannot be null
+     * @param taskId the ID of the task to receive past Success/Failure events for
+     */
+    public static void registerListener(@NonNull LoomListener listener, int taskId) {
+        getDefaultTaskManager().registerListener(listener, taskId);
+    }
+
+    /**
+     * Unregisters a listener with Loom.
+     * The listener will stop receiving events
+     * @param listener the listener, cannot be null
+     */
     public static void unregisterListener(LoomListener listener) {
         getDefaultTaskManager().unregisterListener(listener);
     }

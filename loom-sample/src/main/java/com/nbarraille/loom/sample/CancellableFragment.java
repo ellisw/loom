@@ -108,7 +108,7 @@ public class CancellableFragment extends Fragment {
     public void onResume() {
         super.onResume();
 
-        Loom.registerListener(mListener);
+        Loom.registerListener(mListener, mTaskId);
     }
 
     @Override

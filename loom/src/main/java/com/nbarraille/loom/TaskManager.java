@@ -1,10 +1,16 @@
 package com.nbarraille.loom;
 
+import android.os.Handler;
+import android.os.Looper;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.v4.util.LruCache;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.nbarraille.loom.events.Event;
+import com.nbarraille.loom.events.FailureEvent;
+import com.nbarraille.loom.events.SuccessEvent;
 import com.nbarraille.loom.listeners.LoomListener;
 
 import java.lang.ref.WeakReference;
@@ -23,6 +29,7 @@ import de.greenrobot.event.EventBus;
 public class TaskManager {
     private final Executor mExecutor; // The executor on which the tasks will be executed
     private final EventBus mEventBus; // The EventBus used to notify the listeners
+    private final LruCache<Integer, TaskStatus> mTaskStatuses; // Keeping track of the status of all current and past tasks for this session
     private final Map<Integer, WeakReference<Task>> mCurrentTasksById;
     private final Map<String, Set<Integer>> mCurrentTasksIds;
     private final boolean mIsLoggingEnabled;
@@ -54,6 +61,12 @@ public class TaskManager {
         }
 
         @SuppressWarnings("unused")
+        public Builder setMaxBacklogSize(int maxBacklogSize) {
+            mConfig.setMaxBacklogSize(maxBacklogSize);
+            return this;
+        }
+
+        @SuppressWarnings("unused")
         public Builder setLoggingEnabled(boolean loggingEnabled) {
             mConfig.setLoggingEnabled(loggingEnabled);
             return this;
@@ -72,13 +85,14 @@ public class TaskManager {
             Executor executor = mConfig.mExecutor == null ? buildDefaultExecutor() : mConfig.mExecutor;
 
             boolean loggingEnabled = mConfig.mLoggingEnabled;
-            return new TaskManager(executor, eventBus, loggingEnabled);
+            return new TaskManager(executor, eventBus, loggingEnabled, mConfig.mMaxBacklogSize);
         }
     }
 
-    protected TaskManager(Executor executor, EventBus eventBus, boolean loggingEnabled) {
+    protected TaskManager(Executor executor, EventBus eventBus, boolean loggingEnabled, int maxBacklogSize) {
         mCurrentTasksById = new HashMap<>();
         mCurrentTasksIds = new HashMap<>();
+        mTaskStatuses = new LruCache<>(maxBacklogSize);
         mExecutor = executor;
         mEventBus = eventBus;
         mIsLoggingEnabled = loggingEnabled;
@@ -104,6 +118,10 @@ public class TaskManager {
 
         if (task != null) {
             task.cancel();
+            TaskStatus status = mTaskStatuses.get(taskId);
+            if (status != null) {
+                status.setCancelled();
+            }
         }
     }
 
@@ -124,6 +142,19 @@ public class TaskManager {
     }
 
     /**
+     * Returns the status of the task with the given ID. This can return null for two reasons:
+     * Either no task exist or has existed with this ID, or the task is too old for the size of the
+     * backlog and has been evicted already.
+     *
+     * @param taskId the ID of the task
+     * @return the status of the task, or null
+     */
+    @Nullable
+    public TaskStatus getTaskStatus(int taskId) {
+        return mTaskStatuses.get(taskId);
+    }
+
+    /**
      * Executes a task in the background. The task will run on this TaskManager's executor.
      *
      * @param task the task to execute, cannot be null
@@ -132,6 +163,7 @@ public class TaskManager {
     public int execute(@NonNull final Task task) {
         final int taskId = task.getId();
         final String taskName = task.name();
+        mTaskStatuses.put(taskId, new TaskStatus());
         synchronized (mCurrentTasksById) {
             mCurrentTasksById.put(taskId, new WeakReference<>(task));
             Set<Integer> taskIds = mCurrentTasksIds.get(taskName);
@@ -170,6 +202,55 @@ public class TaskManager {
     }
 
     /**
+     * Registers a listener with this instance of TaskManager.
+     * The listener will receive all the events for its task name.
+     *
+     * If the task with the given ID has already finished (and hasn't been cleared from the backlog
+     * yet), the listener will receive the success or failure callback immediately, in the UI thread.
+     *
+     * It is recommended to use this version of registerListener when task completion events could
+     * have been missed (Activity/Fragment configuration change for example)
+     *
+     * @param listener the listener to register, cannot be null
+     * @param taskId the ID of the task to receive past Success/Failure events for
+     */
+    public void registerListener(@NonNull final LoomListener listener, int taskId) {
+        mEventBus.register(listener);
+        TaskStatus status = getTaskStatus(taskId);
+        if (status != null) {
+            if (status.isFinished()) {
+                final SuccessEvent success = status.getSuccessEvent();
+                final FailureEvent failure = status.getFailureEvent();
+                if (success != null) {
+                    if (! TextUtils.equals(success.getTaskName(), listener.taskName()) && mIsLoggingEnabled) {
+                        Log.e(Loom.LOG_TAG, "The task with id " + taskId + " is not of type " + listener.taskName());
+                        return;
+                    }
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            //noinspection unchecked
+                            listener.onSuccess(success);
+                        }
+                    });
+                } else if (failure != null) {
+                    if (! TextUtils.equals(failure.getTaskName(), listener.taskName()) && mIsLoggingEnabled) {
+                        Log.e(Loom.LOG_TAG, "The task with id " + taskId + " is not of type " + listener.taskName());
+                        return;
+                    }
+                    new Handler(Looper.getMainLooper()).post(new Runnable() {
+                        @Override
+                        public void run() {
+                            //noinspection unchecked
+                            listener.onFailure(failure);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
+    /**
      * Unregisters a listener with this instance of TaskManager.
      * The listener will stop receiving events
      * @param listener the listener, cannot be null
@@ -189,6 +270,10 @@ public class TaskManager {
         if (task.isCancelled()) {
             return;
         }
+        final TaskStatus status = mTaskStatuses.get(task.getId());
+        if (status != null) {
+            status.setStarted();
+        }
         try {
             task.run(this);
         } catch (InterruptedException e) {
@@ -202,24 +287,32 @@ public class TaskManager {
             }
             return;
         } catch (Exception e) {
+            FailureEvent failureEvent = task.buildFailureEvent();
             try {
+                if (status != null) {
+                    status.setFailure(failureEvent);
+                }
                 task.onFailure(e);
             } catch (Exception e1) {
                 if (mIsLoggingEnabled) {
                     Log.e(Loom.LOG_TAG, "Error while performing onFailure(): " + e1.getMessage(), e1);
                 }
             }
-            postEvent(task, task.buildFailureEvent());
+            postEvent(task, failureEvent);
             return;
         }
+        SuccessEvent successEvent = task.buildSuccessEvent();
         try {
+            if (status != null) {
+                status.setSuccess(successEvent);
+            }
             task.onSuccess();
         } catch (Exception e) {
             if (mIsLoggingEnabled) {
                 Log.e(Loom.LOG_TAG, "Error while performing onSuccess(): " + e.getMessage(), e);
             }
         }
-        postEvent(task, task.buildSuccessEvent());
+        postEvent(task, successEvent);
     }
 
     /**
