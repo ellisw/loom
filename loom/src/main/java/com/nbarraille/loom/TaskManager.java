@@ -23,7 +23,6 @@ import android.support.v4.util.LruCache;
 import android.text.TextUtils;
 import android.util.Log;
 
-import com.nbarraille.loom.events.Event;
 import com.nbarraille.loom.events.FailureEvent;
 import com.nbarraille.loom.events.SuccessEvent;
 import com.nbarraille.loom.listeners.LoomListener;
@@ -39,7 +38,14 @@ import java.util.concurrent.Executors;
 import de.greenrobot.event.EventBus;
 
 /**
- * TaskManager manages the tasks and takes care of executing them on the appropriate Executor
+ * A Manager for running Tasks in the background.
+ *
+ * Creates an instance with {@link com.nbarraille.loom.TaskManager.Builder}, or use the default one
+ * with {@link Loom}.
+ *
+ * To run a {@link Task}, use {@link #execute}.
+ * To get callbacks from this Task, create a {@link LoomListener} and use {@link #registerListener}.
+ * You can cancel Tasks by using {@link #cancelTask} or {@link #cancelTasks}.
  */
 public class TaskManager {
     private final Executor mExecutor; // The executor on which the tasks will be executed
@@ -50,40 +56,81 @@ public class TaskManager {
     private final boolean mIsLoggingEnabled;
 
     /**
-     * Builder with fluent API to build TaskManager objects
+     * Builder with fluent API to build <code>TaskManager</code> objects
      */
     public static class Builder {
         protected LoomConfig mConfig;
 
+        /**
+         * Creates a new Builder
+         */
         public Builder() {
             mConfig = new LoomConfig();
         }
 
+        /**
+         * Sets a new {@link LoomConfig} for this Builder. This will override all the previously set
+         * parameters for this <code>Builder</code>.
+         *
+         * @param config the config
+         * @return the same Builder object
+         */
+        @SuppressWarnings("unused")
         public Builder setConfig(@NonNull LoomConfig config) {
             mConfig = config;
             return this;
         }
 
+        /**
+         * Sets the {@link Executor} for the Tasks to run on.
+         *
+         * @param executor the Executor
+         * @return the same Builder object
+         */
+        @SuppressWarnings("unused")
         public Builder setExecutor(Executor executor) {
             mConfig.setExecutor(executor);
             return this;
         }
 
+        /**
+         * Sets the {@link EventBus} on which the Success, Failure and Progress events will be send
+         * back to the Listeners.
+         *
+         * @param eventBus the bus
+         * @return the same Builder object
+         */
         @SuppressWarnings("unused")
-        public Builder setBus(EventBus eventbus) {
-            mConfig.setBus(eventbus);
+        public Builder setBus(EventBus eventBus) {
+            mConfig.setBus(eventBus);
             return this;
         }
 
+        /**
+         * Sets the size of the backlog. This is the number of Tasks Loom can keep track of.
+         * The number of running/pending tasks can exceed that number, this will only affect
+         * {@link TaskManager#getTaskStatus} and {@link TaskManager#registerListener(LoomListener, int)}.
+         * This is configured to <code>1024</code> by default.
+         *
+         * @param maxBacklogSize the size of the backlog
+         * @return the same Builder object
+         */
         @SuppressWarnings("unused")
         public Builder setMaxBacklogSize(int maxBacklogSize) {
             mConfig.setMaxBacklogSize(maxBacklogSize);
             return this;
         }
 
+        /**
+         * Sets whether or not the TaskManager will log non-fatal errors or not.
+         * This is false by default.
+         *
+         * @param enabled whether or not the logging is enabled
+         * @return the same Builder object
+         */
         @SuppressWarnings("unused")
-        public Builder setLoggingEnabled(boolean loggingEnabled) {
-            mConfig.setLoggingEnabled(loggingEnabled);
+        public Builder setLoggingEnabled(boolean enabled) {
+            mConfig.setLoggingEnabled(enabled);
             return this;
         }
 
@@ -92,9 +139,13 @@ public class TaskManager {
         }
 
         private static EventBus buildDefaultBus() {
-            return EventBus.builder().logNoSubscriberMessages(false).sendNoSubscriberEvent(false).build();
+            return EventBus.builder().logNoSubscriberMessages(false)
+                    .sendNoSubscriberEvent(false).build();
         }
 
+        /**
+         * @return the TaskManager configured with this Builder
+         */
         public TaskManager build() {
             EventBus eventBus = mConfig.mEventBus == null ? buildDefaultBus() : mConfig.mEventBus;
             Executor executor = mConfig.mExecutor == null ? buildDefaultExecutor() : mConfig.mExecutor;
@@ -104,7 +155,8 @@ public class TaskManager {
         }
     }
 
-    protected TaskManager(Executor executor, EventBus eventBus, boolean loggingEnabled, int maxBacklogSize) {
+    private TaskManager(Executor executor, EventBus eventBus, boolean loggingEnabled,
+                        int maxBacklogSize) {
         mCurrentTasksById = new HashMap<>();
         mCurrentTasksIds = new HashMap<>();
         mTaskStatuses = new LruCache<>(maxBacklogSize);
@@ -112,10 +164,14 @@ public class TaskManager {
         mEventBus = eventBus;
         mIsLoggingEnabled = loggingEnabled;
     }
+
     /**
-     * Cancels the task with the given ID. If no task with the given ID exists, this will have no
-     * effect
-     * @param taskId the ID of the task
+     * Cancels the <code>Task</code> with the given ID. If no task with the given ID exists,
+     * this will have no effect.
+     * The task needs to be cancellable, in order for this to work.
+     * @see Task#isCancellable()
+     *
+     * @param taskId the ID of the Task
      * @throws IllegalStateException if the task with the given ID is not cancellable
      */
     public void cancelTask(int taskId) throws IllegalStateException {
@@ -141,9 +197,11 @@ public class TaskManager {
     }
 
     /**
-     * Cancels all the tasks (scheduled or running) for the given name.
-     * @param name the name of the task
-     * @throws IllegalStateException if one of the task with that name is not cancellable
+     * Cancels all the tasks with the given name.
+     * If you only want to cancel one specific <code>Task</code>, use {@link #cancelTask} instead.
+     *
+     * @param name the name of the Tasks
+     * @throws IllegalStateException if one of the task with the given name is not cancellable
      */
     public void cancelTasks(String name) {
         synchronized (mCurrentTasksById) {
@@ -157,12 +215,13 @@ public class TaskManager {
     }
 
     /**
-     * Returns the status of the task with the given ID. This can return null for two reasons:
-     * Either no task exist or has existed with this ID, or the task is too old for the size of the
-     * backlog and has been evicted already.
+     * Retrieves the {@link TaskStatus} of the Task with the given ID. This can return null
+     * for two reasons: Either no Task exist or has existed with this ID, or the Task is too old
+     * for the size of the backlog and has been evicted already.
+     * @see com.nbarraille.loom.TaskManager.Builder#setMaxBacklogSize
      *
-     * @param taskId the ID of the task
-     * @return the status of the task, or null
+     * @param taskId the ID of the Task
+     * @return the status of the Task, or null
      */
     @Nullable
     public TaskStatus getTaskStatus(int taskId) {
@@ -170,10 +229,13 @@ public class TaskManager {
     }
 
     /**
-     * Executes a task in the background. The task will run on this TaskManager's executor.
+     * Executes a Task in the background. The Task will be scheduled to run on the default
+     * Loom <code>Executor</code>, and will start as soon as the Executor is ready.
+     * The {@link Task#runTask()} will be called.
      *
-     * @param task the task to execute, cannot be null
-     * @return the ID of that task, that can be used later on to cancel it if necessary
+     * @param task the Task to execute
+     * @return the ID of the Task. You can use this ID to retrieve the status of the Task, or to
+     * cancel it.
      */
     public int execute(@NonNull final Task task) {
         final int taskId = task.getId();
@@ -208,26 +270,33 @@ public class TaskManager {
     }
 
     /**
-     * Registers a listener with this instance of TaskManager.
-     * The listener will receive all the events for its task name
-     * @param listener the listener, cannot be null
+     * Registers a listener with Loom.
+     * The listener will receive all the events sent by tasks with a {@link Task#name()} matching
+     * their {@link LoomListener#taskName()}
+     * If you are interested in past completion events for a given task,
+     * use {@link #registerListener(LoomListener, int)} instead.
+     *
+     * @param listener the listener to register, cannot be null
      */
     public void registerListener(@NonNull LoomListener listener) {
         mEventBus.register(listener);
     }
 
     /**
-     * Registers a listener with this instance of TaskManager.
-     * The listener will receive all the events for its task name.
+     * Registers a listener with Loom.
+     * The listener will receive all the events sent by tasks with a {@link Task#name()} matching
+     * their {@link LoomListener#taskName()}
      *
      * If the task with the given ID has already finished (and hasn't been cleared from the backlog
-     * yet), the listener will receive the success or failure callback immediately, in the UI thread.
+     * yet), the listener's {@link LoomListener#onSuccess} or {@link LoomListener#onFailure}
+     * callback be called immediately, in the UI thread.
      *
      * It is recommended to use this version of registerListener when task completion events could
-     * have been missed (Activity/Fragment configuration change for example)
+     * have been missed (Activity/Fragment re-creation after configuration change, for example)
      *
      * @param listener the listener to register, cannot be null
-     * @param taskId the ID of the task to receive past Success/Failure events for
+     * @param taskId   the ID of the task to receive past Success/Failure events for. If that task ID
+     *                 refers to a task that has a different {@link Task#name}
      */
     public void registerListener(@NonNull final LoomListener listener, int taskId) {
         mEventBus.register(listener);
@@ -266,12 +335,19 @@ public class TaskManager {
     }
 
     /**
-     * Unregisters a listener with this instance of TaskManager.
-     * The listener will stop receiving events
-     * @param listener the listener, cannot be null
+     * Unregisters a listener with Loom.
+     * The listener won't receive any more events.
+     * @param listener the listener to register, cannot be null
      */
     public void unregisterListener(@NonNull LoomListener listener) {
         mEventBus.unregister(listener);
+    }
+
+    /**
+     * @return the Executor used by this TaskManager
+     */
+    Executor getExecutor() {
+        return mExecutor;
     }
 
     final void postEvent(Task task, @Nullable Event event) {
@@ -329,13 +405,4 @@ public class TaskManager {
         }
         postEvent(task, successEvent);
     }
-
-    /**
-     * @return the executor used by this task manager
-     */
-    public Executor getExecutor() {
-        return mExecutor;
-    }
-
-
 }

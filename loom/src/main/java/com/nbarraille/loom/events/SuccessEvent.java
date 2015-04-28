@@ -15,6 +15,8 @@
  */
 package com.nbarraille.loom.events;
 
+import com.nbarraille.loom.Event;
+
 /**
  * The base class for a Success event
  */

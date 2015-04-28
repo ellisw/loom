@@ -15,12 +15,14 @@
  */
 package com.nbarraille.loom;
 
+import com.nbarraille.loom.listeners.LoomListener;
+
 import java.util.concurrent.Executor;
 
 import de.greenrobot.event.EventBus;
 
 /**
- * The configuration of a TaskManager, with a fluent API.
+ * The configuration of a <code>TaskManager</code>, with a fluent API.
  */
 public class LoomConfig {
     private final static int DEFAULT_MAX_BACKLOG_SIZE = 1024;
@@ -30,9 +32,10 @@ public class LoomConfig {
     protected int mMaxBacklogSize = DEFAULT_MAX_BACKLOG_SIZE;
 
     /**
-     * Sets the executor on which the tasks are going to be executed
-     * @param executor the executor
-     * @return the same config object
+     * Sets the {@link Executor} for the Tasks to run on.
+     *
+     * @param executor the Executor
+     * @return the same LoomConfig object
      */
     public LoomConfig setExecutor(Executor executor) {
         mExecutor = executor;
@@ -40,9 +43,11 @@ public class LoomConfig {
     }
 
     /**
-     * Sets the bus on which the callback messages are going to be sent
+     * Sets the {@link EventBus} on which the Success, Failure and Progress events will be send
+     * back to the Listeners.
+     *
      * @param eventBus the bus
-     * @return the same config object
+     * @return the same LoomConfig object
      */
     public LoomConfig setBus(EventBus eventBus) {
         mEventBus = eventBus;
@@ -50,9 +55,13 @@ public class LoomConfig {
     }
 
     /**
-     * Sets the max number of tasks to keep in the backlog.
-     * @param maxBacklogSize the size
-     * @return the same config object
+     * Sets the size of the backlog. This is the number of Tasks Loom can keep track of.
+     * The number of running/pending tasks can exceed that number, this will only affect
+     * {@link TaskManager#getTaskStatus} and {@link TaskManager#registerListener(LoomListener, int)}.
+     * This is configured to <code>1024</code> by default.
+     *
+     * @param maxBacklogSize the size of the backlog
+     * @return the same LoomConfig object
      */
     public LoomConfig setMaxBacklogSize(int maxBacklogSize) {
         mMaxBacklogSize = maxBacklogSize;
@@ -60,10 +69,11 @@ public class LoomConfig {
     }
 
     /**
-     * Enables/Disables logs.
-     * Logs are disabled by default
-     * @param enabled true for enabling logging, false for disabling it
-     * @return the same config object
+     * Sets whether or not the TaskManager will log non-fatal errors or not.
+     * This is false by default.
+     *
+     * @param enabled whether or not the logging is enabled
+     * @return the same Builder object
      */
     public LoomConfig setLoggingEnabled(boolean enabled) {
         mLoggingEnabled = enabled;

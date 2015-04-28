@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.nbarraille.loom.events;
+package com.nbarraille.loom;
 
 /**
- * The base class for all the task events
+ * The base class for all Events sent by <code>Task</code>s
  */
 public abstract class Event {
     private String mTaskName;
 
-    public void setTaskName(String taskName) {
+    void setTaskName(String taskName) {
         mTaskName = taskName;
     }
 
+    /**
+     * @return the name of the Task this event is for
+     */
     public String getTaskName() {
         return mTaskName;
     }

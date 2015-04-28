@@ -22,39 +22,82 @@ import com.nbarraille.loom.events.ProgressEvent;
 import com.nbarraille.loom.events.SuccessEvent;
 
 /**
- * A task to be executed in the background
+ * A Task to be executed in the background.
+ *
+ * Create your own Task by subclassing this and overriding {@link #name()} and {@link #runTask}.
+ *
+ * It is recommended to create top-level classes or <b>static</b> inner classes for your Tasks
+ * in order to avoid leaking the outer class (often an <code>Activity</code> or <code>Fragment</code>)
+ * while this Task is running.
+ *
+ * This Task should be executed by running {@link TaskManager#execute} or {@link Loom#execute}.
+ *
+ * The Task is considered successful if <code>runTask</code> returns, or failed if
+ * <code>runTask</code> raises an Exception.
+ * The <code>TaskManager</code> will automatically send a {@link SuccessEvent} or {@link FailureEvent}
+ * accordingly.
+ * You need to create a {@link com.nbarraille.loom.listeners.LoomListener} with a
+ * <code>taskName</code> matching this Task's <code>name</code> and register it with the
+ * <code>TaskManager</code> to receive those events.
+ *
+ * You can customize the <code>SuccessEvent</code> and <code>FailureEvent</code> by overriding the
+ * {@link #buildSuccessEvent} and/or {@link #buildFailureEvent} methods.
+ * The recommended way to do this is to create your own subclasses of <code>SuccessEvent</code>
+ * and/or <code>FailureEvent</code>, and have the methods return a new instance of them.
+ *
+ * This Task can also returns its progress. For this, it is up to you to call {@link #postProgress}
+ * from the <code>runTask</code> method. By default, a generic {@link ProgressEvent} will be sent,
+ * but you can also customize it by overriding {@link #buildProgressEvent}.
+ *
+ * By default, Tasks are not cancellable, so that they will not exit in an indefinite state.
+ * If you want your Task to be cancellable, you need to override the {@link #isCancellable} method
+ * to return <code>true</code>. To make sure your Task cleans up after itself when cancelled, you
+ * can override the {@link #onCancelled} method, which will be executed in the same Thread as the
+ * <code>runTask</code> method. <code>onCancelled</code> will only be called if the Task has been
+ * cancelled <b>after</b> its execution has started.
+ *
+ * The Task also provides {@link #onSuccess} and {@link #onFailure} callbacks that will be called in
+ * the same Thread as the <code>runTask</code> method after the success/failure event is sent.
+ *
  */
 public abstract class Task {
-    private TaskManager mManager;
-    @Nullable
-    private volatile Thread mThread; // The thread on which that task is running. Will be null until it starts executing
+    private TaskManager mManager; // The manager this Task is executed with
+    @Nullable private volatile Thread mThread; // The thread on which that task is running. Will be null until it starts executing
     private volatile boolean mIsCancelled = false; // Whether or not that task has been cancelled
     private volatile boolean mIsFinished = false; // Whether or not that task has been cancelled
 
     /**
-     * @return the ID of the task
+     * @return the ID of the Task
      */
-    public int getId() {
+    final int getId() {
         return hashCode();
     }
 
     /**
-     * The name of the task, used to match the task's progress events with the right listeners
+     * The name of the Task, used to match the Task's events with the right listeners.
+     *
      * @return the name of the task
      */
     protected abstract String name();
 
     /**
-     * The task to be executed.
-     * The task will consider to succeed if that method returns, and to fail if an exception is thrown
+     * The actual code to be executed in the background.
+     * This method will be executed on the <code>TaskManager</code>'s <code>Executor</code>.
+     * The Task will be assumed to be successful if this method returns, or failed if it throws an
+     * Exception.
+     * You can also call {@link #postProgress} at any point in this method to send progress to
+     * listeners.
+     *
      * @throws Exception when the task fails
      */
     protected abstract void runTask() throws Exception;
 
     /**
-     * Builds the event to be sent on the bus when the task succeeds.
-     * Subclasses should implement this if they want to notify listeners about successes.
-     * @return the event to be sent
+     * Builds the event to be sent on the bus when the task succeeds. By default this builds a generic
+     * {@link SuccessEvent}.
+     *
+     * Override this if you want to send custom events.
+     * @return the Event to be sent
      */
     @Nullable
     protected SuccessEvent buildSuccessEvent() {
@@ -62,9 +105,11 @@ public abstract class Task {
     }
 
     /**
-     * Builds the event to be sent on the bus when the task fails.
-     * Subclasses should implement this if they want to notify listeners about failures.
-     * @return the event to be sent
+     * Builds the event to be sent on the bus when the task fails. By default this builds a generic
+     * {@link FailureEvent}.
+     *
+     * Override this if you want to send custom events.
+     * @return the Event to be sent
      */
     @Nullable
     protected FailureEvent buildFailureEvent() {
@@ -72,10 +117,11 @@ public abstract class Task {
     }
 
     /**
-     * Builds the event to be sent on the bus when the task succeeds.
-     * Subclasses should implement this if they want to notify listeners about successes.
-     * @param progress the progress, will be between 0 and 100 (inclusive)
-     * @return the event to be sent
+     * Builds the event to be sent on the bus when the task progresses. By default this builds a generic
+     * {@link ProgressEvent}.
+     *
+     * Override this if you want to send custom events.
+     * @return the Event to be sent
      */
     @Nullable
     protected ProgressEvent buildProgressEvent(int progress) {
@@ -83,45 +129,38 @@ public abstract class Task {
     }
 
     /**
-     * Callback for subclasses to implement being executed when the task finishes successfully.
-     * This callback will be executed in the same background thread as the actual task
+     * Callback for subclasses to implement being executed when the task succeeds.
+     * <code>SuccessEvent</code>s are automatically sent by the <code>TaskManager</code>.
+     * You <b>do not</b> need to send them here.
+     *
+     * This callback will be executed in the same Thread as <code>runTask</code>.
      */
     protected void onSuccess() {}
 
     /**
-     * Callback for subclasses to implement being executed when the task fails
-     * This callback will be executed in the same background thread as the actual task
-     * @param error the error that occurred
+     * Callback for subclasses to implement being executed when the task fails.
+     * <code>FailureEvent</code>s are automatically sent by the <code>TaskManager</code>.
+     * You <b>do not</b> need to send them here.
+     *
+     * This callback will be executed in the same Thread as <code>runTask</code>.
      */
     protected void onFailure(@SuppressWarnings("UnusedParameters") Exception error) {}
 
     /**
-     * Callback for subclasses to implement being executed when the task has been cancelled.
-     * All the cleanup should be done here
-     * This will not be called if the task did not start running yet, as there will be no cleanup
-     * in this case
+     * Callback for subclasses to implement being executed when the task is cancelled after its
+     * execution has started.
+     * You can do all the clean up for a Task that did not complete here.
+     *
+     * This callback will be executed in the same Thread as <code>runTask</code>.
      */
     protected void onCancelled() {}
 
     /**
-     * Runs the background task in the current thread.
-     * You should not call this directly, and use BackgroundTaskManager.execute(task) or
-     * BackgroundTaskManager.executeOnExecutor(task, executor) to execute that task
-     */
-    final void run(TaskManager manager) throws Exception {
-        mThread = Thread.currentThread();
-        mManager = manager;
-        try {
-            runTask();
-        } finally {
-            mIsFinished = true;
-            mThread = null;
-        }
-    }
-
-    /**
      * Posts a progress event on the event bus.
-     * This method should be called by subclasses whenever they want to report their progress
+     * This method should be called by subclasses whenever they want to report their progress.
+     * <b>This should only be called from <code>runTask</code></b>.
+     * You can customize the {@link ProgressEvent} being sent by overriding {@link #buildProgressEvent}.
+     *
      * @param progress an integer representing the progress of the task, must be between 0 and 100
      */
     @SuppressWarnings("unused")
@@ -144,34 +183,43 @@ public abstract class Task {
     }
 
     /**
-     * BackgroundTasks are not cancellable by default.
-     * Subclasses must override this to return true if they want the task to be cancellable.
-     * If they do, they probably need to override onCancelled() to cleanup everything.
-     * @return whether or not the task is cancellable
+     * Tasks are not cancellable by default.
+     * Subclasses need to override this to return <code>true</code> if they want the Task to be
+     * cancellable.
+     * If they do, they can also override {@link #onCancelled} to cleanup after the cancellation.
+     *
+     * @return whether or not the Task is cancellable
      */
     protected boolean isCancellable() {
         return false;
     }
 
     /**
-     * @return whether or not the task has been cancelled
+     * @return whether or not the Task has been cancelled
      */
     protected boolean isCancelled() {
         return mIsCancelled;
     }
 
     /**
-     * @return whether or not the task has finished
+     * @return whether or not the Task has finished
      */
     protected boolean isFinished() {
         return mIsFinished;
     }
 
-    /**
-     * Cancels the current task. This should only be called by the BackgroundTaskManager
-     * @throws IllegalStateException if the task is not cancellable
-     */
-    void cancel() throws IllegalStateException {
+    final void run(TaskManager manager) throws Exception {
+        mThread = Thread.currentThread();
+        mManager = manager;
+        try {
+            runTask();
+        } finally {
+            mIsFinished = true;
+            mThread = null;
+        }
+    }
+
+    final void cancel() throws IllegalStateException {
         if (!isCancellable()) {
             throw new IllegalStateException("The task is not cancellable");
         }

@@ -15,27 +15,29 @@
  */
 package com.nbarraille.loom.events;
 
+import com.nbarraille.loom.Event;
+
 /**
- * The base class for a Progress event
+ * The base class for a Progress event.
+ *
+ * By default, a ProgressEvent keeps track of a progress value between 0 and 100.
  */
 public class ProgressEvent extends Event {
     private final int mProgress;
 
+    /**
+     * Creates a ProgressEvent
+     * @param progress the progress, must be between 0 and 100
+     */
     public ProgressEvent(int progress) {
         mProgress = progress;
     }
 
+    /**
+     * @return the progress of this event
+     */
     @SuppressWarnings("unused")
     public int getProgress() {
         return mProgress;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (o instanceof ProgressEvent) {
-            return mProgress == ((ProgressEvent) o).getProgress();
-        } else {
-            return false;
-        }
     }
 }

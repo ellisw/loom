@@ -15,20 +15,38 @@
  */
 package com.nbarraille.loom;
 
+import android.support.annotation.IntDef;
+import android.support.annotation.Nullable;
+
 import com.nbarraille.loom.events.FailureEvent;
 import com.nbarraille.loom.events.SuccessEvent;
+import com.nbarraille.loom.listeners.LoomListener;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+/**
+ * Represents the status of a Task in the backlog.
+ * This keeps track of execution of past and current Tasks.
+ * This keeps the {@link SuccessEvent} or {@link FailureEvent} object for finished Tasks, so that
+ * they can be sent to listeners that missed them using
+ * {@link TaskManager#registerListener(LoomListener, int)}.
+ */
 public class TaskStatus {
+    @IntDef({PENDING, STARTED, FINISHED, CANCELLED})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface Status {}
+
     public static final int PENDING = 0;
     public static final int STARTED = 1;
     public static final int FINISHED = 2;
     public static final int CANCELLED = 3;
 
-    private int mStatus;
+    @Status private int mStatus;
     private SuccessEvent mSuccessEvent;
     private FailureEvent mFailureEvent;
 
-    public TaskStatus() {
+    TaskStatus() {
         mStatus = PENDING;
     }
 
@@ -50,28 +68,60 @@ public class TaskStatus {
         mStatus = CANCELLED;
     }
 
-    public synchronized boolean isPending() {
-        return mStatus == PENDING;
-    }
-
+    /**
+     * @return the status of the Task this represent
+     */
+    @Status
     public synchronized int getStatus() {
         return mStatus;
     }
 
+    /**
+     * @return whether or not the Task this represent is PENDING. Pending means that the Task has
+     * been scheduled to be executed, but has not been picked up by the <code>Executor</code> yet.
+     */
+    public synchronized boolean isPending() {
+        return mStatus == PENDING;
+    }
+
+    /**
+     * @return whether or not the Task this represent is STARTED. Started means that the Task has
+     * started running on the <code>Executor</code> and has not finished yet.
+     */
     public synchronized boolean isStarted() {
         return mStatus == STARTED;
     }
 
+    /**
+     * @return whether or not the Task this represent is FINISHED. Finished means that the Task has
+     * finished its execution, successfully or not, and has not been cancelled
+     */
     public synchronized boolean isFinished() {
         return mStatus == FINISHED;
     }
 
-    public synchronized boolean isCancelled() { return mStatus == CANCELLED; }
+    /**
+     * @return whether or not the Task this represent is CANCELLED. Cancelled means that the Task has
+     * been cancelled at some point.
+     */
+    public synchronized boolean isCancelled() {
+        return mStatus == CANCELLED;
+    }
 
+    /**
+     * @return the SuccessEvent sent by the Task this represents. If the task has not finished or
+     * failed, this will be null.
+     */
+    @Nullable
     public synchronized SuccessEvent getSuccessEvent() {
         return mSuccessEvent;
     }
 
+    /**
+     * @return the FailureEvent sent by the Task this represents. If the task has not finished or
+     * succeeded, this will be null.
+     */
+    @Nullable
     public synchronized FailureEvent getFailureEvent() {
         return mFailureEvent;
     }
