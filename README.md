@@ -158,7 +158,7 @@ class NumberGeneratorSuccess extends SuccessEvent {
 }
   ```
 
-1. Override `buildSuccessEvent()`, `buildErrorEvent()` and/or `buildProgressEvent()` to return and initialize your custom event types
+2. Override `buildSuccessEvent()`, `buildErrorEvent()` and/or `buildProgressEvent()` to return and initialize your custom event types
   ```
 /**
  * Simple task that reports its success and failure to its listeners but no progress
