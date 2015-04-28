@@ -142,7 +142,7 @@ public abstract class Loom {
      *
      * If the task with the given ID has already finished (and hasn't been cleared from the backlog
      * yet), the listener's {@link LoomListener#onSuccess} or {@link LoomListener#onFailure}
-     * callback be called immediately, in the UI thread.
+     * callback will be called immediately, in the UI thread.
      *
      * It is recommended to use this version of registerListener when task completion events could
      * have been missed (Activity/Fragment re-creation after configuration change, for example)
