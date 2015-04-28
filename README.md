@@ -14,7 +14,7 @@ Features
 --------
   - `Tasks` are completely separated from `Activities`/`Services` lifecycle and will persist if the user goes away. This means that orientation changes are supported without effort. This also means that you don't need to retain instances of your activity/fragments and they won't leak.
   - The Tasks can notify `LoomListeners` when a task succeeds, fails, or when a `Task` progress has changed. You can register as many Listeners as you want.
-  - You can choose explicitely whether your listeners callbacks should be executed on the UI thread or in the background.
+  - You can choose explicitly whether your listeners callbacks should be executed on the UI thread or in the background.
   - The Events sent back to the listener can contain any data you want, they don't need to be `Serializable`.
   - Tasks can be cancelled at any time from anywhere, without having to keep references of them.
   - Tasks run on a standard Java `Executor`. You can use the default one we provide, or customize your own.
@@ -148,7 +148,7 @@ Custom events
 The default `SuccessEvent`, `FailureEvent` and `ProgressEvent` don't pass much information back to the listeners, but you can add any data to it by subclassing those events:
 
 1. Create a custom event type. They can contain any kind of data, not only `Serializable`/`Parcelable` objects.
-```
+  ```
 class NumberGeneratorSuccess extends SuccessEvent {
     final int number;
 
@@ -156,10 +156,10 @@ class NumberGeneratorSuccess extends SuccessEvent {
         this.number = number;
     }
 }
-```
+  ```
 
-2. Override `buildSuccessEvent()`, `buildErrorEvent()` and/or `buildProgressEvent()` to return and initialize your custom event types
-```
+1. Override `buildSuccessEvent()`, `buildErrorEvent()` and/or `buildProgressEvent()` to return and initialize your custom event types
+  ```
 /**
  * Simple task that reports its success and failure to its listeners but no progress
  */
@@ -183,10 +183,10 @@ class NumberGeneratorTask extends Task {
         return new NumberGeneratorSuccess(mGeneratedNumber);
     }
 }
-```
+  ```
 
 3. Create a `LoomListener` with the matching event types
-```
+  ```
 LoomListener mListener = new UiThreadListener<NumberGeneratorSuccess, FailureEvent, ProgressEvent>() {
     @NonNull
     @Override
@@ -199,7 +199,7 @@ LoomListener mListener = new UiThreadListener<NumberGeneratorSuccess, FailureEve
         Log.i("LoomSample", "Generated number: " + event.number);
     }
 };
-```
+  ```
 
 Cancel a task
 -------------
